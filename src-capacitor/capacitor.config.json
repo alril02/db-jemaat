@@ -1,0 +1,11 @@
+{
+  "appId": "org.ecclesia.manado.app",
+  "appName": "DB Jemaat",
+  "webDir": "www",
+  "plugins": {
+    "CapacitorSQLite": {
+      "iosDatabaseLocation": "Library/CapacitorDatabase",
+      "androidDatabaseLocation": "default"
+    }
+  }
+}
