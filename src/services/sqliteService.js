@@ -1,112 +1,15 @@
 import { Capacitor } from '@capacitor/core'
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite'
+import { runMigrations } from 'src/database/migrations'
+import { runSeeders } from 'src/database/seeders'
 
 const DB_NAME = 'jemaat_db'
 const DB_VERSION = 1
 let sqlite
 let db
-
-const seedMembers = [
-  {
-    name: 'Yonathan Mantiri',
-    gender: 'L',
-    birthPlace: 'Manado',
-    birthDate: '1991-04-12',
-    phone: '0812-3456-9901',
-    email: 'yonathan.mantiri@mail.com',
-    area: 'Malalayang',
-    family: 'Keluarga Mantiri',
-    status: 'Aktif',
-    membership: 'Anggota',
-    baptismDate: '2009-05-12',
-    address: 'Perumahan Malalayang Permai Blok C3',
-    notes: 'Pelayan musik',
-    emergencyContact: 'Rey Mantiri - 0813-1122-3434',
-    attendanceRate: 92,
-    attendanceNote: 'Hadir Minggu lalu',
-    photo: 'https://cdn.quasar.dev/img/avatar1.jpg',
-  },
-  {
-    name: 'Ruth Tumiwa',
-    gender: 'P',
-    birthPlace: 'Tomohon',
-    birthDate: '1996-09-30',
-    phone: '0821-4567-8032',
-    email: 'ruth.tumiwa@mail.com',
-    area: 'Paal 2',
-    family: 'Keluarga Tumiwa',
-    status: 'Aktif',
-    membership: 'Anggota',
-    baptismDate: '2013-02-14',
-    address: 'Jl. Raya Paal 2 No. 21',
-    notes: 'Koordinator Komsel',
-    emergencyContact: 'Eva Tumiwa - 0821-4432-1122',
-    attendanceRate: 86,
-    attendanceNote: 'Hadir Minggu lalu',
-    photo: 'https://cdn.quasar.dev/img/avatar2.jpg',
-  },
-  {
-    name: 'Grace Poluan',
-    gender: 'P',
-    birthPlace: 'Airmadidi',
-    birthDate: '2002-01-18',
-    phone: '0813-8822-7788',
-    email: 'grace.poluan@mail.com',
-    area: 'Tikala',
-    family: 'Keluarga Poluan',
-    status: 'Aktif',
-    membership: 'Simpatisan',
-    baptismDate: '',
-    address: 'Kompleks Tikala Elok Blok B5',
-    notes: 'Persiapan baptisan',
-    emergencyContact: 'Riko Poluan - 0813-1122-0098',
-    attendanceRate: 78,
-    attendanceNote: 'Hadir 2 minggu lalu',
-    photo: 'https://cdn.quasar.dev/img/avatar3.jpg',
-  },
-  {
-    name: 'Rio Langi',
-    gender: 'L',
-    birthPlace: 'Bitung',
-    birthDate: '1988-12-05',
-    phone: '0852-7612-2299',
-    email: 'rio.langi@mail.com',
-    area: 'Tuminting',
-    family: 'Keluarga Langi',
-    status: 'Nonaktif',
-    membership: 'Anggota',
-    baptismDate: '2005-08-21',
-    address: 'Jl. Tuminting Utara No. 9',
-    notes: 'Perlu kunjungan',
-    emergencyContact: 'Ina Langi - 0852-4431-2244',
-    attendanceRate: 42,
-    attendanceNote: 'Belum hadir 1 bulan',
-    photo: 'https://cdn.quasar.dev/img/avatar4.jpg',
-  },
-  {
-    name: 'Maria Liow',
-    gender: 'P',
-    birthPlace: 'Manado',
-    birthDate: '1994-03-02',
-    phone: '0812-9900-1122',
-    email: 'maria.liow@mail.com',
-    area: 'Paal 2',
-    family: 'Keluarga Liow',
-    status: 'Aktif',
-    membership: 'Anggota',
-    baptismDate: '2010-11-14',
-    address: 'Kompleks Paal 2 Indah No. 7',
-    notes: 'Pelayan multimedia',
-    emergencyContact: 'Sari Liow - 0812-7766-3344',
-    attendanceRate: 88,
-    attendanceNote: 'Hadir Minggu lalu',
-    photo: 'https://cdn.quasar.dev/img/avatar5.jpg',
-  },
-]
-
 let webStoreInitialized = false
 
-const ensureConnection = async () => {
+const getConnection = async () => {
   if (!sqlite) {
     sqlite = new SQLiteConnection(CapacitorSQLite)
   }
@@ -119,115 +22,167 @@ const ensureConnection = async () => {
   if (!db) {
     db = await sqlite.createConnection(DB_NAME, false, 'no-encryption', DB_VERSION, false)
     await db.open()
+    await db.execute('PRAGMA foreign_keys = ON;')
   }
 
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS jemaat (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      gender TEXT,
-      birthPlace TEXT,
-      birthDate TEXT,
-      phone TEXT,
-      email TEXT,
-      area TEXT,
-      family TEXT,
-      status TEXT,
-      membership TEXT,
-      baptismDate TEXT,
-      address TEXT,
-      notes TEXT,
-      emergencyContact TEXT,
-      attendanceRate INTEGER DEFAULT 0,
-      attendanceNote TEXT DEFAULT '',
-      photo TEXT
-    );
-  `)
+  return db
 }
 
-const seedIfEmpty = async () => {
-  const result = await db.query('SELECT COUNT(1) as total FROM jemaat')
-  const total = result?.values?.[0]?.total ?? 0
-  if (total > 0) return
+const ensureDatabaseReady = async () => {
+  const connection = await getConnection()
+  await runMigrations(connection)
+  await runSeeders(connection, { includeDemoData: true })
+  return connection
+}
 
-  for (const member of seedMembers) {
-    await insertJemaat(member)
+const ensureNamedRow = async (table, keyColumn, keyValue, insertColumns, insertValues) => {
+  const connection = await getConnection()
+  const existing = await connection.query(`SELECT id FROM ${table} WHERE ${keyColumn} = ? LIMIT 1;`, [keyValue])
+  const existingId = existing?.values?.[0]?.id
+  if (existingId) {
+    return existingId
   }
+
+  const placeholders = insertColumns.map(() => '?').join(', ')
+  const statement = `INSERT INTO ${table} (${insertColumns.join(', ')}) VALUES (${placeholders});`
+  const result = await connection.run(statement, insertValues)
+  return result?.changes?.lastId ?? result?.lastId ?? null
 }
+
+const mapJemaatRow = (row) => ({
+  id: row.id,
+  uuid: row.uuid,
+  name: row.nama_lengkap,
+  fullName: row.nama_lengkap,
+  gender: row.jenis_kelamin,
+  birthPlace: row.tempat_lahir,
+  birthDate: row.tanggal_lahir,
+  phone: row.no_hp,
+  email: row.email,
+  area: row.area,
+  family: row.family,
+  status: row.status_jemaat,
+  membership: row.status_keanggotaan,
+  baptismDate: row.tanggal_baptis,
+  address: row.alamat,
+  notes: row.catatan,
+  emergencyContact: row.kontak_darurat,
+  attendanceRate: row.attendance_rate ?? 0,
+  attendanceNote: row.attendance_note ?? 'Belum ada data presensi',
+  photo: row.foto || 'https://cdn.quasar.dev/img/avatar1.jpg',
+})
 
 export const initJemaatDb = async () => {
-  if (!sqlite) {
-    sqlite = new SQLiteConnection(CapacitorSQLite)
-  }
-
   if (Capacitor.getPlatform() === 'web') {
     await customElements.whenDefined('jeep-sqlite')
   }
 
-  await ensureConnection()
-  await seedIfEmpty()
+  await ensureDatabaseReady()
 }
 
 export const getAllJemaat = async () => {
-  await ensureConnection()
-  const result = await db.query('SELECT * FROM jemaat ORDER BY id DESC')
-  return result?.values ?? []
+  const connection = await ensureDatabaseReady()
+  const result = await connection.query(`
+    SELECT
+      j.id,
+      j.uuid,
+      j.nama_lengkap,
+      j.jenis_kelamin,
+      j.tempat_lahir,
+      j.tanggal_lahir,
+      j.no_hp,
+      j.email,
+      w.nama AS area,
+      k.nama_keluarga AS family,
+      j.status_jemaat,
+      j.status_keanggotaan,
+      j.tanggal_baptis,
+      j.alamat,
+      j.catatan,
+      j.kontak_darurat,
+      j.foto,
+      COALESCE(AVG(CASE WHEN p.status_presensi = 'hadir' THEN 100 ELSE 0 END), 0) AS attendance_rate,
+      COALESCE(MAX(p.waktu_presensi), '') AS attendance_note
+    FROM jemaat j
+    JOIN keluarga k ON k.id = j.keluarga_id
+    JOIN wilayah w ON w.id = j.wilayah_id
+    LEFT JOIN presensi_ibadah p ON p.jemaat_id = j.id
+    GROUP BY j.id
+    ORDER BY j.id DESC;
+  `)
+
+  return (result?.values ?? []).map(mapJemaatRow)
 }
 
 export const insertJemaat = async (payload) => {
-  await ensureConnection()
+  const connection = await ensureDatabaseReady()
+  const baseUuid = payload.uuid || `jemaat-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const wilayahName = payload.area || payload.wilayah || 'Wilayah Umum'
+  const wilayahCode = (wilayahName || 'WIL').toUpperCase().replace(/[^A-Z0-9]+/g, '_').slice(0, 10) || 'WIL'
+  const familyName = payload.family || payload.namaKeluarga || 'Keluarga Baru'
 
-  const data = {
-    name: payload.name || payload.fullName || '',
-    gender: payload.gender || '',
-    birthPlace: payload.birthPlace || '',
-    birthDate: payload.birthDate || '',
-    phone: payload.phone || '',
-    email: payload.email || '',
-    area: payload.area || '',
-    family: payload.family || '',
-    status: payload.status || 'Aktif',
-    membership: payload.membership || 'Anggota',
-    baptismDate: payload.baptismDate || '',
-    address: payload.address || '',
-    notes: payload.notes || '',
-    emergencyContact: payload.emergencyContact || '',
-    attendanceRate: payload.attendanceRate ?? 0,
-    attendanceNote: payload.attendanceNote || 'Baru ditambahkan',
-    photo: payload.photo || 'https://cdn.quasar.dev/img/avatar1.jpg',
-  }
+  const wilayahId = await ensureNamedRow(
+    'wilayah',
+    'nama',
+    wilayahName,
+    ['uuid', 'nama', 'kode', 'penanggung_jawab', 'catatan'],
+    [
+      payload.wilayah_uuid || `wilayah-${wilayahCode.toLowerCase()}`,
+      wilayahName,
+      payload.wilayah_kode || wilayahCode,
+      payload.penanggung_jawab || null,
+      payload.catatan_wilayah || null,
+    ],
+  )
+
+  const keluargaId = await ensureNamedRow(
+    'keluarga',
+    'nama_keluarga',
+    familyName,
+    ['uuid', 'wilayah_id', 'nama_keluarga', 'kepala_keluarga', 'alamat', 'no_hp_keluarga', 'catatan'],
+    [
+      payload.keluarga_uuid || `keluarga-${familyName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      wilayahId,
+      familyName,
+      payload.kepala_keluarga || payload.fullName || payload.name || null,
+      payload.address || null,
+      payload.no_hp || payload.phone || null,
+      payload.notes || null,
+    ],
+  )
 
   const statement = `
     INSERT INTO jemaat (
-      name, gender, birthPlace, birthDate, phone, email, area, family, status,
-      membership, baptismDate, address, notes, emergencyContact, attendanceRate,
-      attendanceNote, photo
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      uuid, keluarga_id, wilayah_id, nama_lengkap, jenis_kelamin, tempat_lahir,
+      tanggal_lahir, no_hp, email, alamat, status_jemaat, status_keanggotaan,
+      tanggal_baptis, kontak_darurat, foto, catatan
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
   `
 
   const values = [
-    data.name,
-    data.gender,
-    data.birthPlace,
-    data.birthDate,
-    data.phone,
-    data.email,
-    data.area,
-    data.family,
-    data.status,
-    data.membership,
-    data.baptismDate,
-    data.address,
-    data.notes,
-    data.emergencyContact,
-    data.attendanceRate,
-    data.attendanceNote,
-    data.photo,
+    baseUuid,
+    keluargaId,
+    wilayahId,
+    payload.name || payload.fullName || '',
+    payload.gender || '',
+    payload.birthPlace || '',
+    payload.birthDate || '',
+    payload.phone || '',
+    payload.email || '',
+    payload.address || '',
+    payload.status || 'Aktif',
+    payload.membership || 'Anggota',
+    payload.baptismDate || '',
+    payload.emergencyContact || '',
+    payload.photo || 'https://cdn.quasar.dev/img/avatar1.jpg',
+    payload.notes || '',
   ]
 
-  const result = await db.run(statement, values)
+  const result = await connection.run(statement, values)
+
   return {
     id: result?.changes?.lastId,
-    ...data,
+    uuid: baseUuid,
+    ...payload,
   }
 }
