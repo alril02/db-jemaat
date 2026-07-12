@@ -17,7 +17,8 @@ export const CREATE_SCHEMA = [
       created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
       updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
       deleted_at TEXT,
-      sync_status TEXT NOT NULL DEFAULT 'pending'
+      sync_status TEXT NOT NULL DEFAULT 'pending',
+      last_synced_at TEXT
     );
   `,
   `
@@ -37,6 +38,7 @@ export const CREATE_SCHEMA = [
       updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
       deleted_at TEXT,
       sync_status TEXT NOT NULL DEFAULT 'pending',
+      last_synced_at TEXT,
       FOREIGN KEY (role_id) REFERENCES roles(id) ON UPDATE CASCADE ON DELETE RESTRICT
     );
   `,
@@ -51,7 +53,8 @@ export const CREATE_SCHEMA = [
       created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
       updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
       deleted_at TEXT,
-      sync_status TEXT NOT NULL DEFAULT 'pending'
+      sync_status TEXT NOT NULL DEFAULT 'pending',
+      last_synced_at TEXT
     );
   `,
   `
@@ -68,6 +71,7 @@ export const CREATE_SCHEMA = [
       updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
       deleted_at TEXT,
       sync_status TEXT NOT NULL DEFAULT 'pending',
+      last_synced_at TEXT,
       FOREIGN KEY (wilayah_id) REFERENCES wilayah(id) ON UPDATE CASCADE ON DELETE RESTRICT
     );
   `,
@@ -94,6 +98,7 @@ export const CREATE_SCHEMA = [
       updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
       deleted_at TEXT,
       sync_status TEXT NOT NULL DEFAULT 'pending',
+      last_synced_at TEXT,
       FOREIGN KEY (keluarga_id) REFERENCES keluarga(id) ON UPDATE CASCADE ON DELETE RESTRICT,
       FOREIGN KEY (wilayah_id) REFERENCES wilayah(id) ON UPDATE CASCADE ON DELETE RESTRICT
     );
@@ -115,6 +120,7 @@ export const CREATE_SCHEMA = [
       updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
       deleted_at TEXT,
       sync_status TEXT NOT NULL DEFAULT 'pending',
+      last_synced_at TEXT,
       FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT
     );
   `,
@@ -133,6 +139,7 @@ export const CREATE_SCHEMA = [
       updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
       deleted_at TEXT,
       sync_status TEXT NOT NULL DEFAULT 'pending',
+      last_synced_at TEXT,
       FOREIGN KEY (event_ibadah_id) REFERENCES event_ibadah(id) ON UPDATE CASCADE ON DELETE RESTRICT,
       FOREIGN KEY (jemaat_id) REFERENCES jemaat(id) ON UPDATE CASCADE ON DELETE RESTRICT,
       FOREIGN KEY (recorded_by_user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,

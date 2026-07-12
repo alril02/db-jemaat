@@ -127,26 +127,49 @@ export const markMigrationAsRun = async (db, version = INITIAL_SCHEMA_VERSION) =
   )
 }
 
+const MIGRATIONS = [
+  {
+    version: INITIAL_SCHEMA_VERSION,
+    run: async (db) => {
+      const legacyJemaatSchema = (await hasTable(db, 'jemaat')) && !(await hasColumn(db, 'jemaat', 'uuid'))
+      if (legacyJemaatSchema) {
+        await db.execute('ALTER TABLE jemaat RENAME TO jemaat_legacy;')
+      }
+      await createFreshSchema(db)
+      if (legacyJemaatSchema) {
+        await migrateLegacyJemaatRows(db)
+      }
+    },
+  },
+  {
+    version: '002_add_last_synced_at',
+    run: async (db) => {
+      const tables = ['roles', 'users', 'wilayah', 'keluarga', 'jemaat', 'event_ibadah', 'presensi_ibadah']
+      for (const table of tables) {
+        if (!(await hasColumn(db, table, 'last_synced_at'))) {
+          await db.execute(`ALTER TABLE ${table} ADD COLUMN last_synced_at TEXT;`)
+        }
+      }
+    },
+  },
+]
+
 export const runMigrations = async (db) => {
-  const migrationTableExists = await hasTable(db, 'schema_migrations')
-  const legacyJemaatSchema = (await hasTable(db, 'jemaat')) && !(await hasColumn(db, 'jemaat', 'uuid'))
-
-  if (migrationTableExists && (await hasMigrationRun(db, INITIAL_SCHEMA_VERSION))) {
-    return { migrated: false, version: INITIAL_SCHEMA_VERSION }
-  }
-
-  if (legacyJemaatSchema) {
-    await db.execute('ALTER TABLE jemaat RENAME TO jemaat_legacy;')
-  }
-
   await ensureMigrationsTable(db)
 
-  await createFreshSchema(db)
+  let migratedAny = false
+  let lastApplied = ''
 
-  if (legacyJemaatSchema) {
-    await migrateLegacyJemaatRows(db)
+  for (const migration of MIGRATIONS) {
+    const alreadyRun = await hasMigrationRun(db, migration.version)
+    if (!alreadyRun) {
+      console.log(`Running database migration: ${migration.version}`)
+      await migration.run(db)
+      await markMigrationAsRun(db, migration.version)
+      migratedAny = true
+      lastApplied = migration.version
+    }
   }
 
-  await markMigrationAsRun(db, INITIAL_SCHEMA_VERSION)
-  return { migrated: true, version: INITIAL_SCHEMA_VERSION }
+  return { migrated: migratedAny, version: lastApplied || 'up-to-date' }
 }

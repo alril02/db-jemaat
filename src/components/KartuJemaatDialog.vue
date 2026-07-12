@@ -6,7 +6,7 @@
           <div class="text-h6 text-weight-bold">Kartu Jemaat</div>
           <div class="text-caption text-grey-6">Pratinjau kartu jemaat</div>
         </div>
-        <q-btn flat round icon="close" @click="jemaatStore.kartuJemaatDialog = false" />
+        <q-btn flat round icon="close" @click="jemaatStore.closeKartuJemaatDialog()" />
       </q-card-section>
 
       <q-separator />

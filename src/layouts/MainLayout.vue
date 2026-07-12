@@ -141,18 +141,23 @@ const navItems = [
     to: '/data-jemaat'
   },
   {
-    label: 'Wilayah & Warta',
-    caption: 'Komsel dan jadwal',
-    icon: 'map',
-    to: '/',
-    disabled: true
+    label: 'Data Keluarga',
+    caption: 'Manajemen keluarga jemaat',
+    icon: 'home',
+    to: '/keluarga'
   },
   {
-    label: 'Pelayanan',
-    caption: 'Petugas dan jadwal',
+    label: 'Wilayah',
+    caption: 'Manajemen rayon wilayah',
+    icon: 'map',
+    to: '/wilayah'
+  },
+  {
+    label: 'Sesi Ibadah',
+    caption: 'Event & Presensi Jemaat',
     icon: 'event',
-    to: '/',
-    disabled: true
+    to: '/events',
+    disabled: false
   },
   {
     label: 'Keuangan',
@@ -165,8 +170,7 @@ const navItems = [
     label: 'Pengaturan',
     caption: 'Akun dan sistem',
     icon: 'settings',
-    to: '/',
-    disabled: true
+    to: '/settings'
   }
 ]
 
