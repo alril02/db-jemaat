@@ -3,6 +3,14 @@ apply plugin: 'com.android.application'
 android {
     namespace "org.ecclesia.manado.app"
     compileSdk rootProject.ext.compileSdkVersion
+    signingConfigs {
+        release {
+            storeFile file("kasirku-release.jks")
+            storePassword "Aa@22064113"
+            keyAlias "kasirku"
+            keyPassword "Aa@22064113"
+        }
+    }
     defaultConfig {
         applicationId "org.ecclesia.manado.app"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -20,6 +28,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }
